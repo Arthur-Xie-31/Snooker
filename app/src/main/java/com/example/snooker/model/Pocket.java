@@ -1,5 +1,7 @@
 package com.example.snooker.model;
 
+import static com.example.snooker.GameView.WORLD_SCALE;
+
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -23,7 +25,7 @@ import org.jbox2d.dynamics.World;
 public class Pocket extends Drawable {
 
     // snooker pocket radius
-    public static final float RADIUS = 8.4f;
+    public static final float RADIUS = 8.4f * WORLD_SCALE;
 
     private Body body;
     private Paint paint;

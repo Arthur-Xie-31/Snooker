@@ -1,6 +1,7 @@
 package com.example.snooker.model;
 
 import android.graphics.Color;
+import android.util.Log;
 
 import org.jbox2d.common.Vec2;
 import org.jbox2d.dynamics.World;
@@ -13,5 +14,6 @@ public class CueBall extends Ball{
 
     public void CueAction(final float x, final float y) {
         body.setLinearVelocity(new Vec2(x, y));
+        body.setAngularVelocity(0);
     }
 }

@@ -1,5 +1,7 @@
 package com.example.snooker.model;
 
+import static com.example.snooker.GameView.WORLD_SCALE;
+
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -22,12 +24,16 @@ import org.jbox2d.dynamics.World;
 
 public abstract class Ball extends Drawable {
 
-    public static final float RADIUS = 4.2f;
+    public static final float RADIUS = 4.2f * WORLD_SCALE;
+    private static final float MOVE_FRICTION = 0.2f;
+    private static final float SPIN_FRICTION = 0.3f;
+    // Ball fixture parameters
+    private static final float DENSITY = 1.0f;
+    private static final float CONTACT_FRICTION = 0.1f;    // friction when ball hits ball
+    private static final float RESTITUTION = 0.8f;    // bounciness when ball hits ball
 
     protected Body body;
-
     protected Paint paint;
-
     protected boolean isPotted = false;
 
     public Ball(World world, float positionX, float positionY) {
@@ -35,8 +41,8 @@ public abstract class Ball extends Drawable {
         bodyDef.type = BodyType.DYNAMIC;
         bodyDef.position.set(positionX, positionY);
         // Damping properties for friction
-        bodyDef.linearDamping = 0.2f;    // Slows down linear movement (critical for snooker)
-        bodyDef.angularDamping = 0.3f;    // Slows down rotation (spin)
+        bodyDef.linearDamping = MOVE_FRICTION;    // Slows down linear movement
+        bodyDef.angularDamping = SPIN_FRICTION;    // Slows down rotation (spin)
         bodyDef.allowSleep = false;
         // Set these to prevent tunneling
         bodyDef.fixedRotation = false;  // Allow rotation for spin
@@ -49,9 +55,9 @@ public abstract class Ball extends Drawable {
 
         FixtureDef fixtureDef = new FixtureDef();
         fixtureDef.shape = circleShape;
-        fixtureDef.density = 1.0f;
-        fixtureDef.friction = 0.3f;
-        fixtureDef.restitution = 0.8f;
+        fixtureDef.density = DENSITY;
+        fixtureDef.friction = CONTACT_FRICTION;
+        fixtureDef.restitution = RESTITUTION;
 
         body.createFixture(fixtureDef);
 

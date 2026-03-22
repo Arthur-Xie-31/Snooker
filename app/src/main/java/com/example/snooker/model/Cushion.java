@@ -1,5 +1,7 @@
 package com.example.snooker.model;
 
+import static com.example.snooker.GameView.WORLD_SCALE;
+
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -22,13 +24,13 @@ import org.jbox2d.dynamics.World;
 public class Cushion extends Drawable {
 
     // snooker table cushion thickness
-    public static final float THICKNESS = 10f;
+    public static final float THICKNESS = 10f * WORLD_SCALE;
     // cushion fixture parameters
     private static final float DENSITY = 1.0f;
-    private static final float FRICTION = 0.2f;    // friction when ball hits cushion
+    private static final float FRICTION = 0.1f;    // friction when ball hits cushion
     private static final float RESTITUTION = 0.6f;    // bounciness (snooker cushions are quite bouncy)
     // cushion color in RBG
-    private static final int COLOR = Color.rgb(71, 28, 2);
+    private static final int COLOR = Color.rgb(82, 27, 7);
 
     private Body body;
     private Paint paint;
