@@ -109,7 +109,46 @@ public abstract class Ball extends Drawable {
         return isPotted;
     }
 
+    public boolean IsStopped() {
+        return body.getLinearVelocity().length() < 0.1f;
+    }
+
     public Vec2 GetPosition() {
         return body.getPosition();
+    }
+
+    public boolean WillHit(Vec2 startPoint, Vec2 direction, Vec2 hitPoint) {
+        // 1. Calculate the line vertical to the direction line and through start point
+        // if the ball is located at opposite of this line, it will never hit.
+        float slope = direction.y / direction.x;
+        float slopeVertical = - (1f / slope);
+        float cVertical = startPoint.y - slopeVertical * startPoint.x;
+        // Vertical line: y = slopeVertical * x + cVertical
+        float verticalLineYAtballX = slopeVertical * body.getPosition().x + cVertical;
+        if (((direction.y > 0) && (body.getPosition().y <= verticalLineYAtballX))
+                || ((direction.y < 0) && (body.getPosition().y >= verticalLineYAtballX))) {
+            return false;
+        }
+
+        // 2. If the ball is located at the same side as direction line,
+        // Calculate the distance from the ball to the direction line.
+        cVertical = body.getPosition().y - slopeVertical * body.getPosition().x;
+        float c = startPoint.y - slope * startPoint.x;
+        float times = slopeVertical - slope;
+        c = c - cVertical;
+        float hitPointX = c / times;
+        float hitPointY = slopeVertical * hitPointX + cVertical;
+        Vec2 distance = new Vec2(body.getPosition().x - hitPointX, body.getPosition().y - hitPointY);
+        if (distance.length() < Ball.RADIUS * 2) {
+            float dist = distance.length();
+            float delta = (float) Math.sqrt(Math.pow(Ball.RADIUS * 2, 2) - Math.pow(dist, 2));
+            float deltaX = (float) Math.sqrt((delta * delta) / (slope * slope + 1));
+            float deltaY = Math.abs(slope * deltaX);
+            hitPoint.x = (startPoint.x > body.getPosition().x) ? hitPointX + deltaX : hitPointX - deltaX;
+            hitPoint.y = (startPoint.y > body.getPosition().y) ? hitPointY + deltaY : hitPointY - deltaY;;
+            return true;
+        } else {
+            return false;
+        }
     }
 }

@@ -15,6 +15,7 @@ import androidx.annotation.Nullable;
 import com.example.snooker.GameView;
 
 import org.jbox2d.collision.shapes.PolygonShape;
+import org.jbox2d.common.Vec2;
 import org.jbox2d.dynamics.Body;
 import org.jbox2d.dynamics.BodyDef;
 import org.jbox2d.dynamics.BodyType;
@@ -35,8 +36,10 @@ public class Cushion extends Drawable {
     private Body body;
     private Paint paint;
     private final float left, top, right, bottom;
+    private final String name;
 
-    public Cushion(World world, float left, float top, float right, float bottom) {
+    public Cushion(World world, float left, float top, float right, float bottom, String name) {
+        this.name = name;
         this.left = left;
         this.top = top;
         this.right = right;
@@ -87,5 +90,69 @@ public class Cushion extends Drawable {
     @Override
     public void setColorFilter(@Nullable ColorFilter colorFilter) {
         // No-op
+    }
+
+    public boolean willHitCushion(Vec2 startPoint, Vec2 direction, Vec2 hitPoint) {
+        float slope = direction.y / direction.x;
+        switch (name) {
+            case "top" : {
+                if ((direction.y >= 0) || (startPoint.y <= (THICKNESS + Ball.RADIUS)))
+                    return false;
+                float deltaY = (THICKNESS + Ball.RADIUS) - startPoint.y;
+                float deltaX = deltaY / slope;
+                float hitX = startPoint.x + deltaX;
+                if ((hitX > THICKNESS) && (hitX < Table.WIDTH - THICKNESS)) {
+                    hitPoint.x = hitX;
+                    hitPoint.y = THICKNESS + Ball.RADIUS;
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            case "bottom" : {
+                if ((direction.y <= 0) || (startPoint.y >= (Table.LENGTH - THICKNESS - Ball.RADIUS)))
+                    return false;
+                float deltaY = (Table.LENGTH - THICKNESS - Ball.RADIUS) - startPoint.y;
+                float deltaX = deltaY / slope;
+                float hitX = startPoint.x + deltaX;
+                if ((hitX > THICKNESS) && (hitX < Table.WIDTH - THICKNESS)) {
+                    hitPoint.x = hitX;
+                    hitPoint.y = Table.LENGTH - THICKNESS - Ball.RADIUS;
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            case "left" : {
+                if ((direction.x >= 0) || (startPoint.x <= (THICKNESS + Ball.RADIUS)))
+                    return false;
+                float deltaX = (THICKNESS + Ball.RADIUS) - startPoint.x;
+                float deltaY = deltaX * slope;
+                float hitY = startPoint.y + deltaY;
+                if ((hitY > THICKNESS) && (hitY < Table.LENGTH - THICKNESS)) {
+                    hitPoint.x = THICKNESS + Ball.RADIUS;
+                    hitPoint.y = hitY;
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            case "right" : {
+                if ((direction.x <= 0) || (startPoint.x >= (Table.WIDTH - THICKNESS - Ball.RADIUS)))
+                    return false;
+                float deltaX = (Table.WIDTH - THICKNESS - Ball.RADIUS) - startPoint.x;
+                float deltaY = deltaX * slope;
+                float hitY = startPoint.y + deltaY;
+                if ((hitY > THICKNESS) && (hitY < Table.LENGTH - THICKNESS)) {
+                    hitPoint.x = Table.WIDTH - THICKNESS - Ball.RADIUS;
+                    hitPoint.y = hitY;
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            default:
+                return false;
+        }
     }
 }

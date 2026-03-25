@@ -80,8 +80,7 @@ public class Pocket extends Drawable {
     }
 
     public boolean fallsInPocket(Ball ball) {
-        Vec2 ballPosition = ball.GetPosition();
-        double distance = Math.sqrt(Math.pow((ballPosition.x - position.x), 2) + Math.pow((ballPosition.y - position.y), 2));
-        return distance < RADIUS;
+        Vec2 distance = new Vec2(ball.GetPosition().x - position.x, ball.GetPosition().y - position.y);
+        return distance.length() < RADIUS;
     }
 }
