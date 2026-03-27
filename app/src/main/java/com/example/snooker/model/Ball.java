@@ -110,7 +110,12 @@ public abstract class Ball extends Drawable {
     }
 
     public boolean IsStopped() {
-        return body.getLinearVelocity().length() < 0.1f;
+        if (body.getLinearVelocity().length() < 0.1f) {
+            body.setLinearVelocity(new Vec2(0, 0));
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public Vec2 GetPosition() {

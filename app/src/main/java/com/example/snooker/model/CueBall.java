@@ -12,8 +12,8 @@ public class CueBall extends Ball{
         paint.setColor(Color.WHITE);
     }
 
-    public void CueAction(final float x, final float y) {
-        body.setLinearVelocity(new Vec2(x, y));
+    public void CueAction(Vec2 initialVelocity) {
+        body.setLinearVelocity(new Vec2(initialVelocity));
         body.setAngularVelocity(0);
     }
 }

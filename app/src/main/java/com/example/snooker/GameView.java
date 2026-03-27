@@ -10,6 +10,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 
 import com.example.snooker.model.Ball;
+import com.example.snooker.model.ColorBall;
 import com.example.snooker.model.CueBall;
 import com.example.snooker.model.Player;
 import com.example.snooker.model.RedBall;
@@ -34,7 +35,7 @@ public class GameView extends View {
     // The cue ball
     private CueBall cueBall;
     private List<Ball> allBalls = new LinkedList<>();
-    private Set<Ball> redBalls = new HashSet<>();
+    private Set<RedBall> targetBalls = new HashSet<>();
     private Player currentPlayer;
     private static float scale;
 
@@ -52,7 +53,6 @@ public class GameView extends View {
 
         // 2. Create balls
         // 2.1 Create red balls
-        /*
         float currentX = Table.WIDTH / 2;
         float currentY = (Table.LENGTH / 4 * 3) + (Ball.RADIUS * 2);
         for (int i = 1; i <= 5; i++) {
@@ -70,16 +70,13 @@ public class GameView extends View {
         targetBalls.add(new ColorBall(world, Table.WIDTH / 2, Table.LENGTH / 2, 5));  // Blue ball
         targetBalls.add(new ColorBall(world, Table.WIDTH / 2, Table.LENGTH / 4 * 3, 6));  // Pink ball
         targetBalls.add(new ColorBall(world, Table.WIDTH / 2, Table.LENGTH / 11 * 10, 7));  // Black ball
-        */
-        redBalls.add(new RedBall(world, Table.WIDTH / 4, Table.LENGTH/ 4 * 3));
-        allBalls.addAll(redBalls);
+        allBalls.addAll(targetBalls);
         // 2.3 Create the cue ball
-        //cueBall = new CueBall(world, Table.WIDTH / 12 * 5, Table.LENGTH / 5);  // Cue ball
-        cueBall = new CueBall(world, Table.WIDTH / 2, Table.LENGTH / 2);
+        cueBall = new CueBall(world, Table.WIDTH / 12 * 5, Table.LENGTH / 5);  // Cue ball
         allBalls.add(cueBall);
 
         // 3. Create player
-        currentPlayer = new Player("Mark Selby");
+        currentPlayer = new Player("Mark Selby", world);
 
         // 4. Enable touch events
         setFocusable(true);
@@ -126,7 +123,7 @@ public class GameView extends View {
 
                 case MotionEvent.ACTION_UP:
                     // Finish aiming
-                    currentPlayer.setCurrentState(Player.GameState.FEATHERING);
+                    currentPlayer.onActionFinish();
                     return true;
             }
         } else if (currentPlayer.getCurrentState() == Player.GameState.FEATHERING) {
@@ -143,7 +140,8 @@ public class GameView extends View {
 
                 case MotionEvent.ACTION_UP:
                     // Take the shot
-                    currentPlayer.TakeShot(cueBall);
+                    currentPlayer.onActionFinish();
+                    currentPlayer.cueing(cueBall.GetPosition());
                     return true;
             }
         }
@@ -158,12 +156,17 @@ public class GameView extends View {
         // Time step = 1/60 seconds, 10 velocity iterations, 10 position iterations
         world.step(1.0f / 60.0f, 10, 10);
 
+        // 2.0 Check if cue tip hit the cue ball
+        if (currentPlayer.getCurrentState() == Player.GameState.CUEING) {
+            currentPlayer.CheckHitCueBall(cueBall);
+        }
+
         // 2.1 Check potted balls in the last frame
         table.CheckPottedBalls(allBalls);
 
         // 2.2 Check if ball has stopped moving
         if ((currentPlayer.getCurrentState() == Player.GameState.MOVING) && isAllBallStopped()) {
-            currentPlayer.setCurrentState(Player.GameState.AIMING);
+            currentPlayer.onActionFinish();
         }
 
         // 3. Draw the table
@@ -176,10 +179,10 @@ public class GameView extends View {
 
         // 5. Draw player with aiming UI (only when not shooting)
         if (currentPlayer.getCurrentState() != Player.GameState.MOVING) {
-            currentPlayer.draw(canvas, redBalls, table, cueBall.GetPosition());
+            currentPlayer.draw(canvas, targetBalls, table, cueBall.GetPosition());
         }
 
-        // 5. Redraw continuously for animation
+        // 6. Redraw continuously for animation
         invalidate();
     }
 

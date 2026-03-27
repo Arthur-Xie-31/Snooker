@@ -14,7 +14,13 @@ import androidx.annotation.Nullable;
 
 import com.example.snooker.GameView;
 
+import org.jbox2d.collision.shapes.CircleShape;
 import org.jbox2d.common.Vec2;
+import org.jbox2d.dynamics.Body;
+import org.jbox2d.dynamics.BodyDef;
+import org.jbox2d.dynamics.BodyType;
+import org.jbox2d.dynamics.FixtureDef;
+import org.jbox2d.dynamics.World;
 
 import java.util.Set;
 
@@ -24,23 +30,29 @@ public class Player {
     private static final float MAX_POWER = 100f;
     private static final float MIN_POWER = 1.0f;
     private static final float CUE_LENGTH = 145f * WORLD_SCALE;
+    private static final float AIMING_LINE_LENGTH = 100f * WORLD_SCALE;
+    private static final float CUE_TIP_RADIUS = 0.94f * WORLD_SCALE;
 
     private final String name;
 
     public enum GameState {
         AIMING,     // Player determine cue direction
         FEATHERING,     // Player determine cue power
+        CUEING,
         MOVING    // Ball is moving, player do nothing
     }
     private GameState currentState = GameState.AIMING;
+
+    private Body cueTip;
     // Visual elements
-    private Paint cuePaint;
-    private Paint aimingLinePaint;
+    private final Paint cuePaint;
+    private final Paint aimingLinePaint;
     // Cue control variables
     private Vec2 aimingPoint = new Vec2(Table.WIDTH / 2, Table.LENGTH);
-    private float cuePower = 0;      // Power of the shot (0-1 range)
+    private float cuePower = 0;      // 0 - 100
+    private Vec2 cueVelocity = new Vec2();
 
-    public Player(String name) {
+    public Player(String name, World world) {
         this.name = name;
 
         // Cue paint
@@ -54,6 +66,20 @@ public class Player {
         aimingLinePaint.setColor(Color.WHITE);
         aimingLinePaint.setStrokeWidth(8);
         aimingLinePaint.setStyle(Paint.Style.STROKE);
+
+        // Create cue tip body definition
+        BodyDef pocketDef = new BodyDef();
+        pocketDef.type = BodyType.DYNAMIC;
+
+        CircleShape pocketShape = new CircleShape();
+        pocketShape.m_radius = CUE_TIP_RADIUS;
+
+        FixtureDef pocketFixture = new FixtureDef();
+        pocketFixture.shape = pocketShape;
+        pocketFixture.isSensor = true;  // CRITICAL: This makes it a sensor!
+
+        cueTip = world.createBody(pocketDef);
+        cueTip.createFixture(pocketFixture);
     }
 
     public void Aiming(Vec2 touchPoint) {
@@ -72,25 +98,47 @@ public class Player {
         }
     }
 
-    public void TakeShot(CueBall cueBall) {
-        if (cuePower <= 0) return;
+    public void cueing(Vec2 cueBallPosition) {
+        if (currentState == GameState.CUEING) {
+            if (cuePower <= 0) return;
+            // Calculate cue velocity
+            float dx = aimingPoint.x - cueBallPosition.x;
+            float dy = aimingPoint.y - cueBallPosition.y;
 
-        // Calculate direction from cue ball to touch point
-        float dx = aimingPoint.x - cueBall.GetPosition().x;
-        float dy = aimingPoint.y - cueBall.GetPosition().y;
+            // Normalize direction
+            float length = (float) Math.sqrt(dx * dx + dy * dy);
+            if (length > 0.01f) {
+                dx /= length;
+                dy /= length;
+            }
 
-        // Normalize direction
-        float length = (float) Math.sqrt(dx * dx + dy * dy);
-        if (length > 0.01f) {
-            dx /= length;
-            dy /= length;
+            cueVelocity.x = dx * cuePower;
+            cueVelocity.y = dy * cuePower;
+
+            // place cue tip
+            float powerLength = cuePower / 4f;
+            float cueTipX = cueBallPosition.x - dx * powerLength;
+            float cueTipY = cueBallPosition.y - dy * powerLength;
+            cueTip.setTransform(new Vec2(cueTipX, cueTipY), 0);
+            cueTip.setLinearVelocity(cueVelocity.clone());
         }
+    }
 
-        // Apply the initial velocity to cue ball
-        cueBall.CueAction(dx * cuePower, dy * cuePower);
+    public void CheckHitCueBall(CueBall cueBall) {
+        Vec2 distance = new Vec2(cueBall.GetPosition().x - cueTip.getPosition().x, cueBall.GetPosition().y - cueTip.getPosition().y);
+        if (distance.length() <= Ball.RADIUS + CUE_TIP_RADIUS) {
+            TakeShot(cueBall);
+        }
+    }
 
+    private void TakeShot(CueBall cueBall) {
+        // Apply the cue velocity to cue ball
+        cueBall.CueAction(cueVelocity);
         // Switch to shooting state
         cuePower = 0;
+        cueVelocity.setZero();
+        cueTip.setLinearVelocity(new Vec2(0, 0));
+        cueTip.setAngularVelocity(0);
         currentState = GameState.MOVING;
     }
 
@@ -98,42 +146,56 @@ public class Player {
         return currentState;
     }
 
-    public void setCurrentState(GameState state) {
-        currentState = state;
+    public void onActionFinish() {
+        switch (currentState) {
+            case AIMING:
+                currentState = GameState.FEATHERING;
+                break;
+            case FEATHERING:
+                currentState = GameState.CUEING;
+                break;
+            case CUEING:
+                currentState = GameState.MOVING;
+            case MOVING:
+                currentState = GameState.AIMING;
+                break;
+        }
     }
 
-    public void draw(@NonNull Canvas canvas, final Set<Ball> targetBalls, final Table table, final Vec2 cueBallPosition) {
+    public void draw(@NonNull Canvas canvas, final Set<RedBall> targetBalls, final Table table, final Vec2 cueBallPosition) {
         float scale = GameView.GetScale();
-        // Convert world coordinates to screen coordinates
-        float startX = cueBallPosition.x * scale;
-        float startY = cueBallPosition.y * scale;
-
-        float dx = cueBallPosition.x - aimingPoint.x;
-        float dy = cueBallPosition.y - aimingPoint.y;
-
-        // Normalize direction
-        float length = (float) Math.sqrt(dx * dx + dy * dy);
-        if (length > 0.01f) {
-            dx /= length;
-            dy /= length;
-        }
-        float powerLength = (cuePower / 4f) * scale;
-        float cueLength = CUE_LENGTH * scale;
-
-        float cueStartX = startX + dx * powerLength;
-        float cueStartY = startY + dy * powerLength;
-        float cueEndX = cueStartX + dx * cueLength;
-        float cueEndY = cueStartY + dy * cueLength;
 
         // Draw the cue
-        canvas.drawLine(cueStartX, cueStartY, cueEndX, cueEndY, cuePaint);
+        float dx = cueBallPosition.x - aimingPoint.x;
+        float dy = cueBallPosition.y - aimingPoint.y;
+        // Normalize direction
+        float directionLength = (float) Math.sqrt(dx * dx + dy * dy);
+        if (directionLength > 0.01f) {
+            dx /= directionLength;
+            dy /= directionLength;
+        }
+
+        float powerLength = cuePower / 4f;
+        float cueStartX = currentState == GameState.CUEING ?
+                cueTip.getPosition().x : cueBallPosition.x + dx * powerLength;
+        float cueStartY = currentState == GameState.CUEING ?
+                cueTip.getPosition().y : cueBallPosition.y + dy * powerLength;
+        float cueEndX = cueStartX + dx * CUE_LENGTH;
+        float cueEndY = cueStartY + dy * CUE_LENGTH;
+
+        // Convert world coordinates to screen coordinates
+        canvas.drawLine(cueStartX * scale, cueStartY * scale,
+                        cueEndX * scale, cueEndY * scale,
+                        cuePaint);
+
+        if (currentState == GameState.CUEING) return;
 
         // Draw aim line (from cue ball to hit point)
         Vec2 cueDirection = new Vec2(aimingPoint.x - cueBallPosition.x, aimingPoint.y - cueBallPosition.y);
         // 1. Check if it will hit any ball
-        boolean willHitBall = false;
         Vec2 minDistance = new Vec2(Table.WIDTH, Table.LENGTH);
         Vec2 minHitPoint = new Vec2(-1f, -1f);
+        Ball hitBall = null;
         for (Ball ball : targetBalls) {
             Vec2 ballHitPoint = new Vec2();
             if (ball.WillHit(cueBallPosition, cueDirection, ballHitPoint)) {
@@ -141,19 +203,37 @@ public class Player {
                 if (distance.length() < minDistance.length()) {
                     minDistance = distance;
                     minHitPoint = ballHitPoint;
-                    willHitBall = true;
+                    hitBall = ball;
                 }
             }
         }
 
         // 2. If it won't hit any ball, check if it will hit cushion
-        if (willHitBall) {
-            canvas.drawLine(startX, startY, minHitPoint.x * scale, minHitPoint.y * scale, aimingLinePaint);
-            canvas.drawCircle(minHitPoint.x * scale, minHitPoint.y * scale, Ball.RADIUS * scale, aimingLinePaint);
+        if (hitBall != null) {
+            canvas.drawLine(cueBallPosition.x * scale, cueBallPosition.y * scale,
+                    minHitPoint.x * scale, minHitPoint.y * scale, aimingLinePaint);
+            canvas.drawCircle(minHitPoint.x * scale, minHitPoint.y * scale,
+                    Ball.RADIUS * scale, aimingLinePaint);
+
+            // Draw the target ball prediction line
+            dx = hitBall.GetPosition().x - minHitPoint.x;
+            dy = hitBall.GetPosition().y - minHitPoint.y;
+            // Normalize direction
+            directionLength = (float) Math.sqrt(dx * dx + dy * dy);
+            if (directionLength > 0.01f) {
+                dx /= directionLength;
+                dy /= directionLength;
+            }
+            float targetX = hitBall.GetPosition().x + dx * AIMING_LINE_LENGTH;
+            float targetY = hitBall.GetPosition().y + dy * AIMING_LINE_LENGTH;
+            canvas.drawLine(hitBall.GetPosition().x * scale, hitBall.GetPosition().y * scale,
+                    targetX * scale, targetY * scale, aimingLinePaint);
         } else {
             Vec2 cushionHitPoint = table.getCushionHitPoint(cueBallPosition, cueDirection);
-            canvas.drawLine(startX, startY, cushionHitPoint.x * scale, cushionHitPoint.y * scale, aimingLinePaint);
-            canvas.drawCircle(cushionHitPoint.x * scale, cushionHitPoint.y * scale, Ball.RADIUS * scale, aimingLinePaint);
+            canvas.drawLine(cueBallPosition.x * scale, cueBallPosition.y * scale,
+                    cushionHitPoint.x * scale, cushionHitPoint.y * scale, aimingLinePaint);
+            canvas.drawCircle(cushionHitPoint.x * scale, cushionHitPoint.y * scale,
+                    Ball.RADIUS * scale, aimingLinePaint);
         }
 
         // Draw power text
