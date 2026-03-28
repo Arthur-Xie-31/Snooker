@@ -16,4 +16,11 @@ public class CueBall extends Ball{
         body.setLinearVelocity(new Vec2(initialVelocity));
         body.setAngularVelocity(0);
     }
+
+    public void ReplaceInDArea() {
+        body.setTransform(new Vec2(Table.WIDTH / 12 * 5, Table.LENGTH / 5), 0);
+        body.setLinearVelocity(new Vec2(0, 0));
+        body.setAngularVelocity(0);
+        isPotted = false;
+    }
 }

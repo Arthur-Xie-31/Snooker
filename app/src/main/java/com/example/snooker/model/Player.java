@@ -1,5 +1,6 @@
 package com.example.snooker.model;
 
+import static com.example.snooker.GameView.GetScale;
 import static com.example.snooker.GameView.WORLD_SCALE;
 
 import android.graphics.Canvas;
@@ -34,6 +35,11 @@ public class Player {
     private static final float CUE_TIP_RADIUS = 0.94f * WORLD_SCALE;
 
     private final String name;
+    private int frame = 0;
+    private int score = 0;
+    private int breakScore = 0;
+    private int highestBreak = 0;
+    private String reminder = "Pot Red ball";
 
     public enum GameState {
         AIMING,     // Player determine cue direction
@@ -98,8 +104,8 @@ public class Player {
         }
     }
 
-    public void cueing(Vec2 cueBallPosition) {
-        if (currentState == GameState.CUEING) {
+    public void decideCue(Vec2 cueBallPosition) {
+        if (currentState == GameState.FEATHERING) {
             if (cuePower <= 0) return;
             // Calculate cue velocity
             float dx = aimingPoint.x - cueBallPosition.x;
@@ -121,13 +127,17 @@ public class Player {
             float cueTipY = cueBallPosition.y - dy * powerLength;
             cueTip.setTransform(new Vec2(cueTipX, cueTipY), 0);
             cueTip.setLinearVelocity(cueVelocity.clone());
+            currentState = GameState.CUEING;
         }
     }
 
-    public void CheckHitCueBall(CueBall cueBall) {
-        Vec2 distance = new Vec2(cueBall.GetPosition().x - cueTip.getPosition().x, cueBall.GetPosition().y - cueTip.getPosition().y);
-        if (distance.length() <= Ball.RADIUS + CUE_TIP_RADIUS) {
-            TakeShot(cueBall);
+    public void Cueing(CueBall cueBall) {
+        if (currentState == GameState.CUEING) {
+            Vec2 distance = new Vec2(cueBall.GetPosition().x - cueTip.getPosition().x, cueBall.GetPosition().y - cueTip.getPosition().y);
+            if (distance.length() <= Ball.RADIUS + CUE_TIP_RADIUS) {
+                TakeShot(cueBall);
+                currentState = GameState.MOVING;
+            }
         }
     }
 
@@ -139,7 +149,24 @@ public class Player {
         cueVelocity.setZero();
         cueTip.setLinearVelocity(new Vec2(0, 0));
         cueTip.setAngularVelocity(0);
-        currentState = GameState.MOVING;
+    }
+
+    public void onFoul() {
+        if (breakScore > highestBreak) highestBreak = breakScore;
+        breakScore = 0;
+        reminder = "Foul";
+    }
+
+    public void AddBreak(int point) {
+        breakScore += point;
+        score += point;
+        reminder = breakScore + ".";
+    }
+
+    public void onNoBallPotted() {
+        if (breakScore > highestBreak) highestBreak = breakScore;
+        reminder = name + ", " + breakScore + ".";
+        breakScore = 0;
     }
 
     public GameState getCurrentState() {
@@ -156,13 +183,14 @@ public class Player {
                 break;
             case CUEING:
                 currentState = GameState.MOVING;
+                break;
             case MOVING:
                 currentState = GameState.AIMING;
                 break;
         }
     }
 
-    public void draw(@NonNull Canvas canvas, final Set<RedBall> targetBalls, final Table table, final Vec2 cueBallPosition) {
+    public void drawCue(@NonNull Canvas canvas, final Set<RedBall> targetBalls, final Table table, final Vec2 cueBallPosition) {
         float scale = GameView.GetScale();
 
         // Draw the cue
@@ -243,5 +271,15 @@ public class Player {
         textPaint.setStyle(Paint.Style.FILL);
         int powerPercent = (int) (cuePower);
         canvas.drawText("Power: " + powerPercent + "%", 50, 100, textPaint);
+    }
+
+    public void printScore(@NonNull Canvas canvas) {
+        Paint textPaint = new Paint();
+        textPaint.setColor(Color.BLACK);
+        textPaint.setTextSize(50);
+        textPaint.setStyle(Paint.Style.FILL);
+        String text = name + ", break: " + breakScore + ", score: " + score + ", frame: " + frame + ".";
+        canvas.drawText(text, 40, Table.LENGTH * GetScale() + 40, textPaint);
+        canvas.drawText(reminder, 40, Table.LENGTH * GetScale() + 140, textPaint);
     }
 }

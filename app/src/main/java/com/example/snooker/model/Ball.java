@@ -29,7 +29,7 @@ public abstract class Ball extends Drawable {
     private static final float SPIN_FRICTION = 0.3f;
     // Ball fixture parameters
     private static final float DENSITY = 1.0f;
-    private static final float CONTACT_FRICTION = 0.1f;    // friction when ball hits ball
+    private static final float CONTACT_FRICTION = 0f;    // friction when ball hits ball
     private static final float RESTITUTION = 0.8f;    // bounciness when ball hits ball
 
     protected Body body;

@@ -49,8 +49,10 @@ public class Table extends Drawable {
         pockets.add(new Pocket(world, WIDTH - Cushion.THICKNESS, LENGTH - Cushion.THICKNESS));
     }
 
-    public void CheckPottedBalls(final List<Ball> allBalls) {
+    public void CheckPottedBalls(final Set<Ball> allBalls) {
         for (Ball ball : allBalls) {
+            if (ball.isPotted)
+                continue;
             for (Pocket pocket : pockets) {
                 if (pocket.fallsInPocket(ball)) {
                     ball.SetAsPotted();

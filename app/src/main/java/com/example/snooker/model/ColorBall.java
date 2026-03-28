@@ -38,8 +38,10 @@ public class ColorBall extends RedBall{
     }
 
     public void Replace() {
+        // TODO: Consider if the default position has been placed
         body.setTransform(defaultPosition, 0);
         body.setLinearVelocity(new Vec2(0, 0));
         body.setAngularVelocity(0);
+        isPotted = false;
     }
 }
