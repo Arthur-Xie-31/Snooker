@@ -39,13 +39,15 @@ public class Player {
     private int score = 0;
     private int breakScore = 0;
     private int highestBreak = 0;
-    private String reminder = "Pot Red ball";
+    private String reminder;
 
     public enum GameState {
+        PLACING_CUE_BALL,    // TODO: support this
         AIMING,     // Player determine cue direction
         FEATHERING,     // Player determine cue power
         CUEING,
-        MOVING    // Ball is moving, player do nothing
+        MOVING,    // Ball is moving, player do nothing
+        WON    // Frame over, player touch anywhere to start new frame
     }
     private GameState currentState = GameState.AIMING;
 
@@ -60,6 +62,7 @@ public class Player {
 
     public Player(String name, World world) {
         this.name = name;
+        this.reminder = name + "to break";
 
         // Cue paint
         cuePaint = new Paint();
@@ -86,6 +89,10 @@ public class Player {
 
         cueTip = world.createBody(pocketDef);
         cueTip.createFixture(pocketFixture);
+    }
+
+    public void toBreak() {
+        currentState = GameState.AIMING;
     }
 
     public void Aiming(Vec2 touchPoint) {
@@ -169,6 +176,15 @@ public class Player {
         breakScore = 0;
     }
 
+    public void onWin() {
+        if (breakScore > highestBreak) highestBreak = breakScore;
+        breakScore = 0;
+        score = 0;
+        frame++;
+        reminder = name + " won the frame.";
+        currentState = GameState.WON;
+    }
+
     public GameState getCurrentState() {
         return currentState;
     }
@@ -185,15 +201,17 @@ public class Player {
                 currentState = GameState.MOVING;
                 break;
             case MOVING:
+            case WON:
                 currentState = GameState.AIMING;
                 break;
+            default:
         }
     }
 
-    public void drawCue(@NonNull Canvas canvas, final Set<RedBall> targetBalls, final Table table, final Vec2 cueBallPosition) {
+    public void drawCue(@NonNull Canvas canvas, final Set<Ball> allBalls, final Table table, final Vec2 cueBallPosition) {
         float scale = GameView.GetScale();
 
-        // Draw the cue
+        // 1. Draw the cue
         float dx = cueBallPosition.x - aimingPoint.x;
         float dy = cueBallPosition.y - aimingPoint.y;
         // Normalize direction
@@ -218,13 +236,14 @@ public class Player {
 
         if (currentState == GameState.CUEING) return;
 
-        // Draw aim line (from cue ball to hit point)
+        // 2. Draw aim line (from cue ball to hit point)
         Vec2 cueDirection = new Vec2(aimingPoint.x - cueBallPosition.x, aimingPoint.y - cueBallPosition.y);
-        // 1. Check if it will hit any ball
+        // 2.1. Check if it will hit any ball
         Vec2 minDistance = new Vec2(Table.WIDTH, Table.LENGTH);
         Vec2 minHitPoint = new Vec2(-1f, -1f);
         Ball hitBall = null;
-        for (Ball ball : targetBalls) {
+        for (Ball ball : allBalls) {
+            if (ball instanceof CueBall) continue;
             Vec2 ballHitPoint = new Vec2();
             if (ball.WillHit(cueBallPosition, cueDirection, ballHitPoint)) {
                 Vec2 distance = new Vec2(ballHitPoint.x - cueBallPosition.x, ballHitPoint.y - cueBallPosition.y);
@@ -236,7 +255,7 @@ public class Player {
             }
         }
 
-        // 2. If it won't hit any ball, check if it will hit cushion
+        // 2.2. If it won't hit any ball, check if it will hit cushion
         if (hitBall != null) {
             canvas.drawLine(cueBallPosition.x * scale, cueBallPosition.y * scale,
                     minHitPoint.x * scale, minHitPoint.y * scale, aimingLinePaint);
@@ -264,7 +283,7 @@ public class Player {
                     Ball.RADIUS * scale, aimingLinePaint);
         }
 
-        // Draw power text
+        // 3. Draw power text
         Paint textPaint = new Paint();
         textPaint.setColor(Color.WHITE);
         textPaint.setTextSize(80);

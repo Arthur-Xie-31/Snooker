@@ -19,8 +19,10 @@ import com.example.snooker.model.Table;
 import org.jbox2d.common.Vec2;
 import org.jbox2d.dynamics.World;
 
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.TreeSet;
 
 public class GameView extends View {
 
@@ -32,12 +34,17 @@ public class GameView extends View {
     private Table table;
     // The cue ball
     private CueBall cueBall;
+    // All the balls on table
     private Set<Ball> allRemainingBalls = new HashSet<>();
-    private Set<RedBall> targetBalls;
-    private Set<RedBall> redBalls = new HashSet<>();
-    private Set<RedBall> colorBalls = new HashSet<>();
+    // Still store potted balls so we can replace them on table when restarting a new game
     private Set<Ball> pottedBalls = new HashSet<>();
+    // Red balls are not required to be ordered
+    private Set<RedBall> redBalls = new HashSet<>();
+    // Color balls are always ordered by their points
+    private TreeSet<RedBall> colorBalls = new TreeSet<>(Comparator.comparingInt(RedBall::GetScore));
+    // Whether current round to pot red ball or color ball
     private boolean isTargetRed = true;
+    private boolean isCleanColor = false;
     private Player currentPlayer;
     private static float scale;
 
@@ -68,7 +75,7 @@ public class GameView extends View {
         }
         */
         redBalls.add(new RedBall(world, Table.WIDTH / 4, Table.LENGTH / 4 * 3));
-        redBalls.add(new RedBall(world, Table.WIDTH / 4 * 3, Table.LENGTH / 4 * 3));
+        // redBalls.add(new RedBall(world, Table.WIDTH / 4 * 3, Table.LENGTH / 4 * 3));
         allRemainingBalls.addAll(redBalls);
         // 2.2 Create color balls
         colorBalls.add(new ColorBall(world, Table.WIDTH / 3, Table.LENGTH / 5, 2));  // Yellow ball
@@ -81,7 +88,6 @@ public class GameView extends View {
         // 2.3 Create the cue ball
         cueBall = new CueBall(world, Table.WIDTH / 12 * 5, Table.LENGTH / 5);  // Cue ball
         allRemainingBalls.add(cueBall);
-        targetBalls = redBalls;
         isTargetRed = true;
 
         // 3. Create player
@@ -90,6 +96,24 @@ public class GameView extends View {
         // 4. Enable touch events
         setFocusable(true);
         setFocusableInTouchMode(true);
+    }
+
+    private void RestartGame() {
+        for (Ball ball: pottedBalls) {
+            if (ball instanceof ColorBall) {
+                colorBalls.add((ColorBall) ball);
+            } else if (ball instanceof RedBall) {
+                redBalls.add((RedBall) ball);
+            }
+        }
+        allRemainingBalls.addAll(pottedBalls);
+        pottedBalls.clear();
+
+        for (Ball ball : allRemainingBalls) {
+            ball.ResetToDefaultPlace();
+        }
+
+        currentPlayer.toBreak();
     }
 
     @Override
@@ -111,6 +135,11 @@ public class GameView extends View {
         // Only allow aiming when ball is stationary
         if (currentPlayer.getCurrentState() == Player.GameState.MOVING) {
             return true;  // Can't aim while ball is moving
+        }
+        if (currentPlayer.getCurrentState() == Player.GameState.WON) {
+            RestartGame();
+            currentPlayer.onActionFinish();
+            return true;
         }
 
         // Convert screen coordinates to world coordinates
@@ -167,8 +196,14 @@ public class GameView extends View {
 
         // 2.2 Check if ball has stopped moving, if so, check foul or not
         if ((currentPlayer.getCurrentState() == Player.GameState.MOVING) && isAllBallStopped()) {
+            // TODO: Support foul and miss
+            // TODO: Consider if the first hit ball is not the target
             CheckFoul();
-            currentPlayer.onActionFinish();
+            if (redBalls.isEmpty() && colorBalls.isEmpty()) {
+                currentPlayer.onWin();
+            } else {
+                currentPlayer.onActionFinish();
+            }
         }
 
         // 3. Draw the table
@@ -181,7 +216,7 @@ public class GameView extends View {
 
         // 5. Draw player with aiming UI (Do not draw if the cue action is done)
         if (currentPlayer.getCurrentState() != Player.GameState.MOVING) {
-            currentPlayer.drawCue(canvas, targetBalls, table, cueBall.GetPosition());
+            currentPlayer.drawCue(canvas, allRemainingBalls, table, cueBall.GetPosition());
         }
         currentPlayer.printScore(canvas);
 
@@ -198,8 +233,11 @@ public class GameView extends View {
     }
 
     private void CheckFoul() {
+        Set<RedBall> targetBalls = isTargetRed ? redBalls
+                : isCleanColor ? Set.of(colorBalls.first()) : colorBalls;
         boolean isFoul = false;
         int score = 0;
+
         for (Ball ball : allRemainingBalls) {
             if (ball.IsPotted()) {
                 // 1. Cue ball fall, foul and replace cue ball to D area;
@@ -217,8 +255,14 @@ public class GameView extends View {
                     }
                     // 4. replace color ball either foul or not
                     if (pottedBall instanceof ColorBall) {
-                        ((ColorBall) pottedBall).Replace();
-                        // TODO: Consider if the default position has been placed
+                        if (isCleanColor) {
+                            // TODO: Still replace if foul
+                            colorBalls.remove(pottedBall);
+                            pottedBalls.add(pottedBall);
+                        } else {
+                            ((ColorBall) pottedBall).Replace(allRemainingBalls);
+                            // TODO: Consider if the default position has been placed
+                        }
                     } else {
                         pottedBalls.add(pottedBall);
                         redBalls.remove(pottedBall);
@@ -238,7 +282,9 @@ public class GameView extends View {
             currentPlayer.onNoBallPotted();
             isTargetRed = true;
         }
-        if (redBalls.isEmpty()) isTargetRed = false;
-        targetBalls = isTargetRed ? redBalls : colorBalls;
+        if (redBalls.isEmpty() && isTargetRed) {
+            isTargetRed = false;
+            isCleanColor = true;
+        }
     }
 }

@@ -5,15 +5,14 @@ import android.graphics.Color;
 import org.jbox2d.common.Vec2;
 import org.jbox2d.dynamics.World;
 
+import java.util.Set;
+
 // Color balls can be regarded as special red balls with the ability to replace
 public class ColorBall extends RedBall{
-
-    private final Vec2 defaultPosition;
 
     public ColorBall(World world, float positionX, float positionY, int score) {
         super(world, positionX, positionY);
         this.score = score;
-        defaultPosition = new Vec2(positionX, positionY);
         switch (score) {
             case 2:
                 paint.setColor(Color.YELLOW);
@@ -37,11 +36,8 @@ public class ColorBall extends RedBall{
         }
     }
 
-    public void Replace() {
+    public void Replace(Set<Ball> allRemainingBalls) {
         // TODO: Consider if the default position has been placed
-        body.setTransform(defaultPosition, 0);
-        body.setLinearVelocity(new Vec2(0, 0));
-        body.setAngularVelocity(0);
-        isPotted = false;
+        ResetToDefaultPlace();
     }
 }

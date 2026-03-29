@@ -36,6 +36,8 @@ public abstract class Ball extends Drawable {
     protected Paint paint;
     protected boolean isPotted = false;
 
+    protected final Vec2 defaultPosition;
+
     public Ball(World world, float positionX, float positionY) {
         BodyDef bodyDef = new BodyDef();
         bodyDef.type = BodyType.DYNAMIC;
@@ -63,6 +65,8 @@ public abstract class Ball extends Drawable {
 
         paint = new Paint();
         paint.setStyle(Paint.Style.FILL);
+
+        defaultPosition = new Vec2(positionX, positionY);
     }
 
     @Override
@@ -122,6 +126,13 @@ public abstract class Ball extends Drawable {
         return body.getPosition();
     }
 
+    public void SetPosition(Vec2 position) {
+        body.setTransform(position, 0);
+        body.setLinearVelocity(new Vec2(0, 0));
+        body.setAngularVelocity(0);
+        isPotted = false;
+    }
+
     public boolean WillHit(Vec2 startPoint, Vec2 direction, Vec2 hitPoint) {
         // 1. Calculate the line vertical to the direction line and through start point
         // if the ball is located at opposite of this line, it will never hit.
@@ -155,5 +166,13 @@ public abstract class Ball extends Drawable {
         } else {
             return false;
         }
+    }
+
+    public void ResetToDefaultPlace() {
+        // TODO: Consider if the default position has been placed
+        body.setTransform(defaultPosition, 0);
+        body.setLinearVelocity(new Vec2(0, 0));
+        body.setAngularVelocity(0);
+        isPotted = false;
     }
 }
