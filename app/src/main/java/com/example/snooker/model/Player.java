@@ -62,7 +62,7 @@ public class Player {
 
     public Player(String name, World world) {
         this.name = name;
-        this.reminder = name + "to break";
+        this.reminder = name + " to break";
 
         // Cue paint
         cuePaint = new Paint();
@@ -140,7 +140,8 @@ public class Player {
 
     public void Cueing(CueBall cueBall) {
         if (currentState == GameState.CUEING) {
-            Vec2 distance = new Vec2(cueBall.GetPosition().x - cueTip.getPosition().x, cueBall.GetPosition().y - cueTip.getPosition().y);
+            Vec2 distance = new Vec2(cueBall.GetPosition().x - cueTip.getPosition().x,
+                    cueBall.GetPosition().y - cueTip.getPosition().y);
             if (distance.length() <= Ball.RADIUS + CUE_TIP_RADIUS) {
                 TakeShot(cueBall);
                 currentState = GameState.MOVING;
@@ -238,12 +239,13 @@ public class Player {
 
         // 2. Draw aim line (from cue ball to hit point)
         Vec2 cueDirection = new Vec2(aimingPoint.x - cueBallPosition.x, aimingPoint.y - cueBallPosition.y);
-        // 2.1. Check if it will hit any ball
+        // 2.1 Check if it will hit any ball
         Vec2 minDistance = new Vec2(Table.WIDTH, Table.LENGTH);
         Vec2 minHitPoint = new Vec2(-1f, -1f);
         Ball hitBall = null;
         for (Ball ball : allBalls) {
             if (ball instanceof CueBall) continue;
+            if (ball.IsPotted()) continue;
             Vec2 ballHitPoint = new Vec2();
             if (ball.WillHit(cueBallPosition, cueDirection, ballHitPoint)) {
                 Vec2 distance = new Vec2(ballHitPoint.x - cueBallPosition.x, ballHitPoint.y - cueBallPosition.y);
@@ -255,7 +257,7 @@ public class Player {
             }
         }
 
-        // 2.2. If it won't hit any ball, check if it will hit cushion
+        // 2.2 If it will hit a ball, draw the cue ball line and target ball prediction line
         if (hitBall != null) {
             canvas.drawLine(cueBallPosition.x * scale, cueBallPosition.y * scale,
                     minHitPoint.x * scale, minHitPoint.y * scale, aimingLinePaint);
@@ -276,6 +278,7 @@ public class Player {
             canvas.drawLine(hitBall.GetPosition().x * scale, hitBall.GetPosition().y * scale,
                     targetX * scale, targetY * scale, aimingLinePaint);
         } else {
+            // 2.3 If it won't hit any ball, check if it will hit cushion
             Vec2 cushionHitPoint = table.getCushionHitPoint(cueBallPosition, cueDirection);
             canvas.drawLine(cueBallPosition.x * scale, cueBallPosition.y * scale,
                     cushionHitPoint.x * scale, cushionHitPoint.y * scale, aimingLinePaint);
