@@ -7,16 +7,23 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 
-import com.example.snooker.model.GameModel;
+import com.example.snooker.model.Ball;
+import com.example.snooker.model.Player;
 import com.example.snooker.model.Table;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class GameView extends View {
 
     public static final float WORLD_SCALE = 0.35f;
-
-    private GameModel gameModel;
-
     private static float scale;
+
+    // The table and cushions
+    private Table table;
+    // All balls
+    private Set<Ball> balls = new HashSet<>();
+    private Player player;
 
     public GameView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -25,8 +32,10 @@ public class GameView extends View {
         setFocusableInTouchMode(true);
     }
 
-    public void setGameModel(GameModel gameModel) {
-        this.gameModel = gameModel;
+    public void setGameModel(Table table, Set<Ball> balls, Player player) {
+        this.table = table;
+        this.balls.addAll(balls);
+        this.player = player;
     }
 
     @Override
@@ -44,7 +53,15 @@ public class GameView extends View {
 
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
-        super.onDraw(canvas);
-        gameModel.draw(canvas);
+        // 1. Draw the table
+        table.draw(canvas);
+
+        // 2. Draw balls
+        for (Ball ball : balls) {
+            ball.draw(canvas);
+        }
+
+        // 3. Draw player with their cue, aiming line and scores
+        player.draw(canvas, balls, table);
     }
 }

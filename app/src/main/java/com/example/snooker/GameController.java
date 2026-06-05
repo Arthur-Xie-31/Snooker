@@ -5,7 +5,6 @@ import android.view.MotionEvent;
 import com.example.snooker.model.Ball;
 import com.example.snooker.model.ColorBall;
 import com.example.snooker.model.CueBall;
-import com.example.snooker.model.GameModel;
 import com.example.snooker.model.Player;
 import com.example.snooker.model.RedBall;
 import com.example.snooker.model.Table;
@@ -20,7 +19,6 @@ import java.util.TreeSet;
 
 public class GameController {
     private GameView gameView;
-    private GameModel gameModel;
 
     // JBox2D World
     private final World world;
@@ -43,8 +41,7 @@ public class GameController {
 
     GameController(GameView gameView) {
         this.gameView = gameView;
-        // Create the physics world with gravity
-        // (no gravity in snooker, but we use it for friction/slowing down).
+        // 0. Create physical world
         world = new World(new Vec2(0.0f, 0.0f)); // Zero gravity
         // 1. Create the table and cushions
         table = new Table(world);
@@ -75,10 +72,10 @@ public class GameController {
         allRemainingBalls.add(cueBall);
 
         // 3. Create player
-        currentPlayer = new Player("Mark Selby", world);
+        currentPlayer = new Player("Mark Selby", world, cueBall.GetPosition());
 
-        gameModel = new GameModel(table, cueBall, allRemainingBalls, currentPlayer);
-        gameView.setGameModel(gameModel);
+        // 4. Set GameModel for GameView to draw
+        gameView.setGameModel(table, allRemainingBalls, currentPlayer);
     }
 
     public void updatePhysics(float deltaTime) {
@@ -120,7 +117,20 @@ public class GameController {
         float worldY = event.getY() / GameView.GetScale();
         Vec2 touchPoint = new Vec2(worldX, worldY);
 
-        if (currentPlayer.getCurrentState() == Player.GameState.AIMING) {
+        if (currentPlayer.getCurrentState() == Player.GameState.PLACING_CUE_BALL) {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    // Start placing
+                case MotionEvent.ACTION_MOVE:
+                    // Update cueball position
+                    cueBall.PlaceInDArea(touchPoint, allRemainingBalls);
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    // Finish placing
+                    currentPlayer.onActionFinish();
+                    return true;
+            }
+        } else if (currentPlayer.getCurrentState() == Player.GameState.AIMING) {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     // Start aiming
@@ -167,9 +177,11 @@ public class GameController {
         if ((currentPlayer.getCurrentState() == Player.GameState.MOVING) && isAllBallStopped()) {
             // TODO: Support foul and miss
             // TODO: Consider if the first hit ball is not the target
-            CheckFoulAndCollectScore();
+            boolean isCueBallFoul = CheckFoulAndCollectScore();
             if (redBalls.isEmpty() && colorBalls.isEmpty()) {
                 currentPlayer.onWin();
+            } else if (isCueBallFoul){
+                currentPlayer.onCueBallFoul();
             } else {
                 currentPlayer.onActionFinish();
             }
@@ -184,10 +196,11 @@ public class GameController {
         return true;
     }
 
-    private void CheckFoulAndCollectScore() {
+    private boolean CheckFoulAndCollectScore() {
         Set<RedBall> targetBalls = isTargetRed ? redBalls
                 : isCleanColor ? Set.of(colorBalls.first()) : colorBalls;
         boolean isFoul = false;
+        boolean isCueBallFoul = false;
         int score = 0;
         Set<RedBall> pottedBallsInThisShot = new HashSet<>();
 
@@ -197,7 +210,8 @@ public class GameController {
                 // 1.1 Cue ball fall, foul and replace cue ball to D area;
                 if (ball instanceof CueBall) {
                     isFoul = true;
-                    ((CueBall) ball).ReplaceInDArea();
+                    isCueBallFoul = true;
+                    cueBall.ResetToDefaultPlace();
                 } else if (ball instanceof RedBall) {
                     RedBall pottedBall = (RedBall) ball;
                     if (!targetBalls.contains(pottedBall)) {
@@ -245,5 +259,7 @@ public class GameController {
             isTargetRed = false;
             isCleanColor = true;
         }
+
+        return isCueBallFoul;
     }
 }

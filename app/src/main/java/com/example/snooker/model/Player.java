@@ -49,7 +49,7 @@ public class Player {
         MOVING,    // Ball is moving, player do nothing
         WON    // Frame over, player touch anywhere to start new frame
     }
-    private GameState currentState = GameState.AIMING;
+    private GameState currentState = GameState.PLACING_CUE_BALL;
 
     private Body cueTip;
     // Visual elements
@@ -59,10 +59,12 @@ public class Player {
     private Vec2 aimingPoint = new Vec2(Table.WIDTH / 2, Table.LENGTH);
     private float cuePower = 0;      // 0 - 100
     private Vec2 cueVelocity = new Vec2();
+    private Vec2 cueBallPosition;
 
-    public Player(String name, World world) {
+    public Player(String name, World world, Vec2 defaultCueBallPosition) {
         this.name = name;
         this.reminder = name + " to break";
+        this.cueBallPosition = defaultCueBallPosition;
 
         // Cue paint
         cuePaint = new Paint();
@@ -108,6 +110,7 @@ public class Player {
             float distance = (float) Math.sqrt(dx * dx + dy * dy);
             cuePower = Math.max(MIN_POWER, distance);
             cuePower = Math.min(cuePower, MAX_POWER);
+            cueBallPosition = originPoint;
         }
     }
 
@@ -135,6 +138,7 @@ public class Player {
             cueTip.setTransform(new Vec2(cueTipX, cueTipY), 0);
             cueTip.setLinearVelocity(cueVelocity.clone());
             currentState = GameState.CUEING;
+            this.cueBallPosition = cueBallPosition;
         }
     }
 
@@ -145,6 +149,8 @@ public class Player {
             if (distance.length() <= Ball.RADIUS + CUE_TIP_RADIUS) {
                 TakeShot(cueBall);
                 currentState = GameState.MOVING;
+            } else {
+                cueBallPosition = cueBall.GetPosition();
             }
         }
     }
@@ -163,6 +169,10 @@ public class Player {
         if (breakScore > highestBreak) highestBreak = breakScore;
         breakScore = 0;
         reminder = "Foul";
+    }
+
+    public void onCueBallFoul() {
+        currentState = GameState.PLACING_CUE_BALL;
     }
 
     public void AddBreak(int point) {
@@ -192,6 +202,9 @@ public class Player {
 
     public void onActionFinish() {
         switch (currentState) {
+            case PLACING_CUE_BALL:
+                currentState = GameState.AIMING;
+                break;
             case AIMING:
                 currentState = GameState.FEATHERING;
                 break;
@@ -202,14 +215,23 @@ public class Player {
                 currentState = GameState.MOVING;
                 break;
             case MOVING:
-            case WON:
                 currentState = GameState.AIMING;
+                break;
+            case WON:
+                currentState = GameState.PLACING_CUE_BALL;
                 break;
             default:
         }
     }
 
-    public void drawCue(@NonNull Canvas canvas, final Set<Ball> allBalls, final Table table, final Vec2 cueBallPosition) {
+    public void draw(@NonNull Canvas canvas, final Set<Ball> allBalls, final Table table) {
+        if ((currentState != GameState.MOVING) && (currentState != GameState.PLACING_CUE_BALL)) {
+            drawCue(canvas, allBalls, table);
+        }
+        printScore(canvas);
+    }
+
+    private void drawCue(@NonNull Canvas canvas, final Set<Ball> allBalls, final Table table) {
         float scale = GameView.GetScale();
 
         // 1. Draw the cue
@@ -295,7 +317,7 @@ public class Player {
         canvas.drawText("Power: " + powerPercent + "%", 50, 100, textPaint);
     }
 
-    public void printScore(@NonNull Canvas canvas) {
+    private void printScore(@NonNull Canvas canvas) {
         Paint textPaint = new Paint();
         textPaint.setColor(Color.BLACK);
         textPaint.setTextSize(50);

@@ -168,6 +168,14 @@ public abstract class Ball extends Drawable {
         }
     }
 
+    public void CheckCoincide(Vec2 placePosition) {
+        float dx = placePosition.x - body.getPosition().x;
+        float dy = placePosition.y - body.getPosition().y;
+        if (Math.sqrt(dx * dx + dy * dy) < (Ball.RADIUS * 2)) {
+            placePosition.y = body.getPosition().y - (Ball.RADIUS * 2);
+        }
+    }
+
     public void ResetToDefaultPlace() {
         // TODO: Consider if the default position has been placed
         body.setTransform(defaultPosition, 0);
