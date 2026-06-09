@@ -1,7 +1,5 @@
 package com.example.snooker;
 
-import android.view.MotionEvent;
-
 import com.example.snooker.model.Ball;
 import com.example.snooker.model.ColorBall;
 import com.example.snooker.model.CueBall;
@@ -38,6 +36,17 @@ public class GameController {
     private boolean isTargetRed = true;
     private boolean isCleanColor = false;
     private Player currentPlayer;
+
+    public enum ShotResult {
+        NO_BALL_IN,
+        VALID_POT,
+        FOUL,
+        FOUL_AND_MISS,
+        CUE_BALL_FOUL,
+        TOUCHING_BALL,
+        FREE_BALL,
+        WON_THE_FRAME
+    }
 
     GameController(GameView gameView) {
         this.gameView = gameView;
@@ -101,64 +110,45 @@ public class GameController {
         currentPlayer.toBreak();
     }
 
-    public boolean onTouchEvent(MotionEvent event) {
-        // Only allow aiming when ball is stationary
-        if (currentPlayer.getCurrentState() == Player.GameState.MOVING) {
-            return true;  // Can't aim while ball is moving
-        }
-        if (currentPlayer.getCurrentState() == Player.GameState.WON) {
-            RestartGame();
-            currentPlayer.onActionFinish();
-            return true;
-        }
-
-        // Convert screen coordinates to world coordinates
-        float worldX = event.getX() / GameView.GetScale();
-        float worldY = event.getY() / GameView.GetScale();
-        Vec2 touchPoint = new Vec2(worldX, worldY);
-
-        if (currentPlayer.getCurrentState() == Player.GameState.PLACING_CUE_BALL) {
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    // Start placing
-                case MotionEvent.ACTION_MOVE:
-                    // Update cueball position
+    public boolean HandleTouchEvent(Vec2 touchPoint, boolean isTouchFinished) {
+        switch (currentPlayer.getCurrentState()) {
+            case PLACING_CUE_BALL:
+                if (!isTouchFinished) {
+                    // Update cue ball position
                     cueBall.PlaceInDArea(touchPoint, allRemainingBalls);
-                    return true;
-                case MotionEvent.ACTION_UP:
-                    // Finish placing
+                } else {
+                    // Finish placing cue ball
                     currentPlayer.onActionFinish();
-                    return true;
-            }
-        } else if (currentPlayer.getCurrentState() == Player.GameState.AIMING) {
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    // Start aiming
-                case MotionEvent.ACTION_MOVE:
+                }
+                return true;
+            case AIMING:
+                if (!isTouchFinished) {
                     // Update aim direction
                     currentPlayer.Aiming(touchPoint);
-                    return true;
-                case MotionEvent.ACTION_UP:
+                } else {
                     // Finish aiming
                     currentPlayer.onActionFinish();
-                    return true;
-            }
-
-        } else if (currentPlayer.getCurrentState() == Player.GameState.FEATHERING) {
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    // Start feathering
-                case MotionEvent.ACTION_MOVE:
+                }
+                return true;
+            case FEATHERING:
+                if (!isTouchFinished) {
                     // Update cue power
                     currentPlayer.feathering(touchPoint, cueBall.GetPosition());
-                    return true;
-                case MotionEvent.ACTION_UP:
-                    // Take the shot
-                    currentPlayer.decideCue(cueBall.GetPosition());
-                    return true;
-            }
+                } else {
+                    // decided aiming direction and cueing power, start to cue
+                    currentPlayer.decideCue();
+                }
+                return true;
+            case WON:
+                // User tap the screen to kick off a new game
+                if (isTouchFinished) {
+                    RestartGame();
+                }
+                return true;
+            default:
+                // Other situations do not required user to interact
+                return false;
         }
-        return false;
     }
 
     private void playOneStep(float deltaTime) {
@@ -166,7 +156,7 @@ public class GameController {
         world.step(deltaTime, 10, 10);
 
         // 2.0 Check if cue tip hit the cue ball
-        if (currentPlayer.getCurrentState() == Player.GameState.CUEING) {
+        if (currentPlayer.getCurrentState() == Player.PlayerState.CUEING) {
             currentPlayer.Cueing(cueBall);
         }
 
@@ -174,7 +164,7 @@ public class GameController {
         table.CheckPottedBalls(allRemainingBalls);
 
         // 2.2 Check if all balls have stopped moving, if so, check foul or not
-        if ((currentPlayer.getCurrentState() == Player.GameState.MOVING) && isAllBallStopped()) {
+        if ((currentPlayer.getCurrentState() == Player.PlayerState.MOVING) && isAllBallStopped()) {
             // TODO: Support foul and miss
             // TODO: Consider if the first hit ball is not the target
             boolean isCueBallFoul = CheckFoulAndCollectScore();

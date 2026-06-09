@@ -5,13 +5,9 @@ import static com.example.snooker.GameView.WORLD_SCALE;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.ColorFilter;
 import android.graphics.Paint;
-import android.graphics.PixelFormat;
-import android.graphics.drawable.Drawable;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import com.example.snooker.GameView;
 
@@ -41,15 +37,15 @@ public class Player {
     private int highestBreak = 0;
     private String reminder;
 
-    public enum GameState {
-        PLACING_CUE_BALL,    // TODO: support this
+    public enum PlayerState {
+        PLACING_CUE_BALL,
         AIMING,     // Player determine cue direction
         FEATHERING,     // Player determine cue power
         CUEING,
         MOVING,    // Ball is moving, player do nothing
         WON    // Frame over, player touch anywhere to start new frame
     }
-    private GameState currentState = GameState.PLACING_CUE_BALL;
+    private PlayerState currentState = PlayerState.PLACING_CUE_BALL;
 
     private Body cueTip;
     // Visual elements
@@ -94,17 +90,17 @@ public class Player {
     }
 
     public void toBreak() {
-        currentState = GameState.AIMING;
+        currentState = PlayerState.PLACING_CUE_BALL;
     }
 
     public void Aiming(Vec2 touchPoint) {
-        if (currentState == GameState.AIMING) {
+        if (currentState == PlayerState.AIMING) {
             this.aimingPoint = touchPoint;
         }
     }
 
     public void feathering(Vec2 touchPoint, Vec2 originPoint) {
-        if (currentState == GameState.FEATHERING) {
+        if (currentState == PlayerState.FEATHERING) {
             float dx = touchPoint.x - originPoint.x;
             float dy = touchPoint.y - originPoint.y;
             float distance = (float) Math.sqrt(dx * dx + dy * dy);
@@ -114,8 +110,8 @@ public class Player {
         }
     }
 
-    public void decideCue(Vec2 cueBallPosition) {
-        if (currentState == GameState.FEATHERING) {
+    public void decideCue() {
+        if (currentState == PlayerState.FEATHERING) {
             if (cuePower <= 0) return;
             // Calculate cue velocity
             float dx = aimingPoint.x - cueBallPosition.x;
@@ -137,18 +133,17 @@ public class Player {
             float cueTipY = cueBallPosition.y - dy * powerLength;
             cueTip.setTransform(new Vec2(cueTipX, cueTipY), 0);
             cueTip.setLinearVelocity(cueVelocity.clone());
-            currentState = GameState.CUEING;
-            this.cueBallPosition = cueBallPosition;
+            currentState = PlayerState.CUEING;
         }
     }
 
     public void Cueing(CueBall cueBall) {
-        if (currentState == GameState.CUEING) {
+        if (currentState == PlayerState.CUEING) {
             Vec2 distance = new Vec2(cueBall.GetPosition().x - cueTip.getPosition().x,
                     cueBall.GetPosition().y - cueTip.getPosition().y);
             if (distance.length() <= Ball.RADIUS + CUE_TIP_RADIUS) {
                 TakeShot(cueBall);
-                currentState = GameState.MOVING;
+                currentState = PlayerState.MOVING;
             } else {
                 cueBallPosition = cueBall.GetPosition();
             }
@@ -172,7 +167,7 @@ public class Player {
     }
 
     public void onCueBallFoul() {
-        currentState = GameState.PLACING_CUE_BALL;
+        currentState = PlayerState.PLACING_CUE_BALL;
     }
 
     public void AddBreak(int point) {
@@ -193,39 +188,39 @@ public class Player {
         score = 0;
         frame++;
         reminder = name + " won the frame.";
-        currentState = GameState.WON;
+        currentState = PlayerState.WON;
     }
 
-    public GameState getCurrentState() {
+    public PlayerState getCurrentState() {
         return currentState;
     }
 
     public void onActionFinish() {
         switch (currentState) {
             case PLACING_CUE_BALL:
-                currentState = GameState.AIMING;
+                currentState = PlayerState.AIMING;
                 break;
             case AIMING:
-                currentState = GameState.FEATHERING;
+                currentState = PlayerState.FEATHERING;
                 break;
             case FEATHERING:
-                currentState = GameState.CUEING;
+                currentState = PlayerState.CUEING;
                 break;
             case CUEING:
-                currentState = GameState.MOVING;
+                currentState = PlayerState.MOVING;
                 break;
             case MOVING:
-                currentState = GameState.AIMING;
+                currentState = PlayerState.AIMING;
                 break;
             case WON:
-                currentState = GameState.PLACING_CUE_BALL;
+                currentState = PlayerState.PLACING_CUE_BALL;
                 break;
             default:
         }
     }
 
     public void draw(@NonNull Canvas canvas, final Set<Ball> allBalls, final Table table) {
-        if ((currentState != GameState.MOVING) && (currentState != GameState.PLACING_CUE_BALL)) {
+        if ((currentState != PlayerState.MOVING) && (currentState != PlayerState.PLACING_CUE_BALL)) {
             drawCue(canvas, allBalls, table);
         }
         printScore(canvas);
@@ -245,9 +240,9 @@ public class Player {
         }
 
         float powerLength = cuePower / 4f;
-        float cueStartX = currentState == GameState.CUEING ?
+        float cueStartX = currentState == PlayerState.CUEING ?
                 cueTip.getPosition().x : cueBallPosition.x + dx * powerLength;
-        float cueStartY = currentState == GameState.CUEING ?
+        float cueStartY = currentState == PlayerState.CUEING ?
                 cueTip.getPosition().y : cueBallPosition.y + dy * powerLength;
         float cueEndX = cueStartX + dx * CUE_LENGTH;
         float cueEndY = cueStartY + dy * CUE_LENGTH;
@@ -257,7 +252,7 @@ public class Player {
                         cueEndX * scale, cueEndY * scale,
                         cuePaint);
 
-        if (currentState == GameState.CUEING) return;
+        if (currentState == PlayerState.CUEING) return;
 
         // 2. Draw aim line (from cue ball to hit point)
         Vec2 cueDirection = new Vec2(aimingPoint.x - cueBallPosition.x, aimingPoint.y - cueBallPosition.y);

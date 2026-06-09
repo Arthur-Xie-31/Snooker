@@ -4,8 +4,11 @@ import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.MotionEvent;
 
 import androidx.appcompat.app.AppCompatActivity;
+
+import org.jbox2d.common.Vec2;
 
 public class MainActivity extends AppCompatActivity {
     private GameController gameController;
@@ -24,7 +27,14 @@ public class MainActivity extends AppCompatActivity {
         gameView = findViewById(R.id.gameView);
         gameController = new GameController(gameView);
         // set controller to touch event
-        gameView.setOnTouchListener((v, event) -> gameController.onTouchEvent(event));
+        gameView.setOnTouchListener((v, event) -> {
+            // Convert screen coordinates to world coordinates
+            float worldX = event.getX() / GameView.GetScale();
+            float worldY = event.getY() / GameView.GetScale();
+            Vec2 touchPoint = new Vec2(worldX, worldY);
+            return gameController.HandleTouchEvent(touchPoint,
+                    event.getAction() == MotionEvent.ACTION_UP);
+        });
         startGameLoop();
     }
 
