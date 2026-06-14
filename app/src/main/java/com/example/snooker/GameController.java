@@ -6,6 +6,7 @@ import com.example.snooker.model.CueBall;
 import com.example.snooker.model.Player;
 import com.example.snooker.model.RedBall;
 import com.example.snooker.model.Table;
+import com.example.snooker.util.ShotResult;
 
 import org.jbox2d.common.Vec2;
 import org.jbox2d.dynamics.World;
@@ -36,17 +37,6 @@ public class GameController {
     private boolean isTargetRed = true;
     private boolean isCleanColor = false;
     private Player currentPlayer;
-
-    public enum ShotResult {
-        NO_BALL_IN,
-        VALID_POT,
-        FOUL,
-        FOUL_AND_MISS,
-        CUE_BALL_FOUL,
-        TOUCHING_BALL,
-        FREE_BALL,
-        WON_THE_FRAME
-    }
 
     GameController(GameView gameView) {
         this.gameView = gameView;
@@ -167,13 +157,36 @@ public class GameController {
         if ((currentPlayer.getCurrentState() == Player.PlayerState.MOVING) && isAllBallStopped()) {
             // TODO: Support foul and miss
             // TODO: Consider if the first hit ball is not the target
-            boolean isCueBallFoul = CheckFoulAndCollectScore();
+            ShotResult shotResult = CheckFoulAndCollectScore();
+            switch (shotResult.GetShotState()) {
+                case VALID_POT:
+                    currentPlayer.AddBreak(shotResult.GetShotScore());
+                    isTargetRed = !isTargetRed;
+                    break;
+                case NO_BALL_IN:
+                    currentPlayer.onNoBallPotted();
+                    isTargetRed = true;
+                    break;
+                case CUE_BALL_FOUL:
+                    currentPlayer.onCueBallFoul();
+                    isTargetRed = true;
+                    break;
+                case FOUL:
+                    currentPlayer.onFoul();
+                    isTargetRed = true;
+                    break;
+                default:
+                    // Should not hit there...
+            }
+
+            // Check if won the frame
             if (redBalls.isEmpty() && colorBalls.isEmpty()) {
                 currentPlayer.onWin();
-            } else if (isCueBallFoul){
-                currentPlayer.onCueBallFoul();
-            } else {
-                currentPlayer.onActionFinish();
+            }
+            // Check if it is color cleaning now
+            if (redBalls.isEmpty() && isTargetRed) {
+                isTargetRed = false;
+                isCleanColor = true;
             }
         }
     }
@@ -186,7 +199,7 @@ public class GameController {
         return true;
     }
 
-    private boolean CheckFoulAndCollectScore() {
+    private ShotResult CheckFoulAndCollectScore() {
         Set<RedBall> targetBalls = isTargetRed ? redBalls
                 : isCleanColor ? Set.of(colorBalls.first()) : colorBalls;
         boolean isFoul = false;
@@ -235,21 +248,12 @@ public class GameController {
         allRemainingBalls.removeAll(pottedBalls);
 
         // 3. Decide whether it's a foul or valid shot
-        if (isFoul) {
-            currentPlayer.onFoul();
-            isTargetRed = true;
-        } else if (score > 0) {
-            currentPlayer.AddBreak(score);
-            isTargetRed = !isTargetRed;
+        if (isCueBallFoul) {
+            return new ShotResult(ShotResult.ShotState.CUE_BALL_FOUL);
+        } else if (isFoul){
+            return new ShotResult(ShotResult.ShotState.FOUL);
         } else {
-            currentPlayer.onNoBallPotted();
-            isTargetRed = true;
+            return new ShotResult(score);
         }
-        if (redBalls.isEmpty() && isTargetRed) {
-            isTargetRed = false;
-            isCleanColor = true;
-        }
-
-        return isCueBallFoul;
     }
 }

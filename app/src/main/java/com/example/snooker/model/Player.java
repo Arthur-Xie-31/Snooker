@@ -164,9 +164,13 @@ public class Player {
         if (breakScore > highestBreak) highestBreak = breakScore;
         breakScore = 0;
         reminder = "Foul";
+        currentState = PlayerState.AIMING;
     }
 
     public void onCueBallFoul() {
+        if (breakScore > highestBreak) highestBreak = breakScore;
+        breakScore = 0;
+        reminder = "Foul, continue to pot from the D-area.";
         currentState = PlayerState.PLACING_CUE_BALL;
     }
 
@@ -174,12 +178,14 @@ public class Player {
         breakScore += point;
         score += point;
         reminder = breakScore + ".";
+        currentState = PlayerState.AIMING;
     }
 
     public void onNoBallPotted() {
         if (breakScore > highestBreak) highestBreak = breakScore;
-        reminder = name + ", " + breakScore + ".";
         breakScore = 0;
+        reminder = name + ", " + breakScore + ".";
+        currentState = PlayerState.AIMING;
     }
 
     public void onWin() {
@@ -187,7 +193,7 @@ public class Player {
         breakScore = 0;
         score = 0;
         frame++;
-        reminder = name + " won the frame.";
+        reminder = name + " won the frame. The highest break so far is " + highestBreak + ".";
         currentState = PlayerState.WON;
     }
 
